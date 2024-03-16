@@ -49,17 +49,17 @@ let response_handler :
       let buf = Buffer.create 0x100 in
       let th, wk = Lwt.wait () in
       let on_eof () =
-        Httpaf.Body.close_reader body ;
+        Httpaf.Body.Reader.close body ;
         Lwt.wakeup_later wk () in
       let rec on_read payload ~off ~len =
         Buffer.add_string buf (Bigstringaf.substring payload ~off ~len) ;
-        Httpaf.Body.schedule_read body ~on_eof ~on_read in
-      Httpaf.Body.schedule_read body ~on_eof ~on_read ;
+        Httpaf.Body.Reader.schedule_read body ~on_eof ~on_read in
+      Httpaf.Body.Reader.schedule_read body ~on_eof ~on_read ;
       Lwt.async @@ fun () ->
       Lwt.pick [ (th >|= fun () -> `Done); th_err ] >>= function
       | `Done -> f response (Buffer.contents buf)
       | _ ->
-          Httpaf.Body.close_reader body ;
+          Httpaf.Body.Reader.close body ;
           Lwt.return_unit)
 
 let failf fmt = Format.kasprintf (fun err -> raise (Failure err)) fmt
@@ -190,9 +190,9 @@ let run uri =
       Lwt.return_error err
   | Ok (Alpn.Response_H2 _) -> Lwt.return_error (`Msg "Invalid protocol (H2)")
   | Ok (Alpn.Response_HTTP_1_1 (body, _)) -> (
-      Httpaf.Body.close_writer body ;
+      Httpaf.Body.Writer.close body ;
       Lwt.pick [ (th >|= fun body -> `Body body); th_err ] >>= function
       | `Body body -> Lwt.return_ok body
       | _ ->
-          Httpaf.Body.close_writer body ;
+          Httpaf.Body.Writer.close body ;
           Lwt.return_error (`Msg "Got an error while sending request"))
